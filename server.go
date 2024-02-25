@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 )
 
@@ -40,4 +41,41 @@ func (srv *Server) HandleUsers(writer http.ResponseWriter, req *http.Request) {
 		}
 	}
 	fmt.Println("users endpoint hit")
+}
+
+func (srv *Server) HandleUsersCreate(writer http.ResponseWriter, req *http.Request) {
+
+	switch req.Method {
+	case http.MethodPost, http.MethodPut:
+		// check content type
+		if req.Header.Get("Content-Type") != "application/json" {
+			writer.WriteHeader(http.StatusUnsupportedMediaType)
+			return
+		}
+
+		// read json body
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			fmt.Printf("could not read json body: %v", err)
+			writer.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		defer req.Body.Close()
+
+		// unmarashal the json into a user sctruct
+		var user User
+		err = json.Unmarshal(body, &user)
+		if err != nil {
+			fmt.Printf("could not unmarshal json body: %v", err)
+			writer.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		fmt.Printf("User created for: %v\n", user.Name)
+		srv.db.AddUser(&user)
+
+	default:
+		writer.WriteHeader(http.StatusMethodNotAllowed)
+	}
+
 }
